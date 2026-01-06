@@ -421,12 +421,13 @@ const ScannerModal = ({ isOpen, onClose, onScanSuccess }: { isOpen: boolean, onC
   );
 };
 
-const ProductDetailView = ({ products, stores, favorites, toggleFavorite, addToList }: { 
+const ProductDetailView = ({ products, stores, favorites, toggleFavorite, addToList, user }: { 
   products: Product[], 
   stores: Supermarket[], 
   favorites: string[], 
   toggleFavorite: (id: string) => void,
-  addToList: (p: Product) => void
+  addToList: (p: Product) => void,
+  user: User | null
 }) => {
   const navigate = useNavigate();
   const { productId } = useParams();
@@ -714,7 +715,8 @@ const StoreDetailView = ({
   categories,
   currentPage,
   setCurrentPage,
-  onOpenScanner
+  onOpenScanner,
+  user
 }: {
   products: Product[],
   stores: Supermarket[],
@@ -734,7 +736,8 @@ const StoreDetailView = ({
   categories: string[],
   currentPage: number,
   setCurrentPage: (n: number) => void,
-  onOpenScanner: () => void
+  onOpenScanner: () => void,
+  user: User | null
 }) => {
   const navigate = useNavigate();
   const { storeId } = useParams();
@@ -1014,6 +1017,7 @@ const StoreDetailView = ({
                     onToggleFavorite={toggleFavorite}
                     isFavorite={favorites.includes(p.id)}
                     storeLogo={currentStore.logo} 
+                    user={user}
                   />
                 ))}
               </div>
@@ -1732,7 +1736,7 @@ const App: React.FC = () => {
                 const storeLogo = stores.find(s => s.name === p.supermarket)?.logo;
                 return (
                   <React.Fragment key={p.id}>
-                    <ProductCard product={p} onAddToList={addToList} onToggleFavorite={toggleFavorite} isFavorite={favorites.includes(p.id)} storeLogo={storeLogo} />
+                    <ProductCard product={p} onAddToList={addToList} onToggleFavorite={toggleFavorite} isFavorite={favorites.includes(p.id)} storeLogo={storeLogo} user={user} />
                     {(idx + 1) % 7 === 0 && gridBanners.length > 0 && (
                       <div className="hidden sm:flex col-span-2 rounded-[3rem] overflow-hidden bg-[#111827] relative flex-col justify-center items-start p-16 group shadow-2xl min-h-[480px]">
                         {(() => {
@@ -1854,6 +1858,7 @@ const App: React.FC = () => {
             currentPage={currentPage}
             setCurrentPage={setCurrentPage}
             onOpenScanner={() => setIsScannerOpen(true)}
+            user={user}
           />
         } />
         
@@ -1864,6 +1869,7 @@ const App: React.FC = () => {
             favorites={favorites}
             toggleFavorite={toggleFavorite}
             addToList={addToList}
+            user={user}
           />
         } />
         
@@ -1878,7 +1884,7 @@ const App: React.FC = () => {
                 <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-12">
                   {paginatedFavoritedProducts.map((p) => {
                     const storeLogo = stores.find(s => s.name === p.supermarket)?.logo;
-                    return <ProductCard key={p.id} product={p} onAddToList={addToList} onToggleFavorite={toggleFavorite} isFavorite={true} storeLogo={storeLogo} />;
+                    return <ProductCard key={p.id} product={p} onAddToList={addToList} onToggleFavorite={toggleFavorite} isFavorite={true} storeLogo={storeLogo} user={user} />;
                   })}
                 </div>
                 <Pagination 

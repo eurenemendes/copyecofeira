@@ -1,8 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Product } from '../types';
 import { slugify } from '../App';
+import { User } from '../services/firebase';
 
 interface ProductCardProps {
   product: Product;
@@ -10,9 +11,10 @@ interface ProductCardProps {
   onToggleFavorite: (id: string) => void;
   isFavorite: boolean;
   storeLogo?: string;
+  user?: User | null;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToList, onToggleFavorite, isFavorite, storeLogo }) => {
+export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToList, onToggleFavorite, isFavorite, storeLogo, user }) => {
   const navigate = useNavigate();
   const [isAdded, setIsAdded] = useState(false);
   const [isShared, setIsShared] = useState(false);
@@ -23,6 +25,28 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToList, 
   const currentPrice = product.isPromo ? product.promoPrice : product.normalPrice;
   const discount = product.isPromo ? Math.round((1 - product.promoPrice / product.normalPrice) * 100) : 0;
 
+  // Constrói o link direto do produto
+  const productLink = useMemo(() => {
+    const baseUrl = window.location.href.split('#')[0].replace(/\/$/, "");
+    const storeSlug = slugify(product.supermarket);
+    const categorySlug = slugify(product.category);
+    const nameSlug = slugify(product.name);
+    return `${baseUrl}/#/${storeSlug}/${categorySlug}/${product.id}/${nameSlug}`;
+  }, [product]);
+
+  // Constrói a URL do Iframe com os parâmetros solicitados
+  const reportIframeUrl = useMemo(() => {
+    const params = new URLSearchParams({
+      userId: user?.uid || 'anonimo',
+      productId: product.id,
+      productName: product.name,
+      productCategory: product.category,
+      productLink: productLink,
+      storeName: product.supermarket
+    });
+    return `https://formsheets.vercel.app/#/form/2?${params.toString()}`;
+  }, [user, product, productLink]);
+
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
     onAddToList(product);
@@ -32,23 +56,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToList, 
 
   const handleShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const baseUrl = window.location.href.split('#')[0].replace(/\/$/, "");
-    const storeSlug = slugify(product.supermarket);
-    const categorySlug = slugify(product.category);
-    const nameSlug = slugify(product.name);
-    const shareUrl = `${baseUrl}/#/${storeSlug}/${categorySlug}/${product.id}/${nameSlug}`;
-    
     const shareData = {
       title: `EcoFeira - ${product.name}`,
       text: `Confira esta oferta no ${product.supermarket}: ${product.name} por apenas R$ ${currentPrice.toFixed(2).replace('.', ',')}!`,
-      url: shareUrl,
+      url: productLink,
     };
 
     try {
       if (navigator.share) {
         await navigator.share(shareData);
       } else {
-        await navigator.clipboard.writeText(shareUrl);
+        await navigator.clipboard.writeText(productLink);
         setIsShared(true);
         setTimeout(() => setIsShared(false), 2000);
       }
@@ -58,10 +76,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToList, 
   };
 
   const handleCardClick = () => {
-    const storeSlug = slugify(product.supermarket);
-    const categorySlug = slugify(product.category);
-    const nameSlug = slugify(product.name);
-    navigate(`/${storeSlug}/${categorySlug}/${product.id}/${nameSlug}`);
+    navigate(`/${slugify(product.supermarket)}/${slugify(product.category)}/${product.id}/${slugify(product.name)}`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -256,7 +271,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToList, 
                   Caso o formulário abaixo não carregue devido a restrições de segurança do provedor, utilize o botão abaixo:
                 </p>
                 <a 
-                  href="https://formsheets.vercel.app/#/form/2" 
+                  href={reportIframeUrl} 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="inline-flex items-center px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-black rounded-xl transition-all shadow-lg shadow-orange-500/20 text-xs uppercase tracking-widest"
@@ -268,7 +283,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToList, 
               
               <div className="relative aspect-[4/5] sm:aspect-[3/4] w-full rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 bg-white shadow-inner">
                 <iframe 
-                  src="https://formsheets.vercel.app/#/form/2" 
+                  src={reportIframeUrl} 
                   className="w-full h-full border-none"
                   title="Formulário de Reporte"
                 ></iframe>
