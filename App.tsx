@@ -346,7 +346,7 @@ const ScannerModal = ({ isOpen, onClose, onScanSuccess }: { isOpen: boolean, onC
             {!isScanning && (
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 space-y-4">
                 <div className="w-16 h-16 bg-white dark:bg-[#1e293b] rounded-3xl flex items-center justify-center shadow-lg">
-                  <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812-1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                 </div>
                 <p className="text-sm font-bold text-gray-400">A câmera está desligada. Clique em "Iniciar Câmera" para escanear.</p>
               </div>
@@ -695,6 +695,7 @@ const ProductDetailView = ({ products, stores, favorites, toggleFavorite, addToL
   );
 };
 
+// Fixed StoreDetailView to include 'user' prop and pass it to ProductCard
 const StoreDetailView = ({ 
   products, 
   stores, 
@@ -714,7 +715,8 @@ const StoreDetailView = ({
   categories,
   currentPage,
   setCurrentPage,
-  onOpenScanner
+  onOpenScanner,
+  user
 }: {
   products: Product[],
   stores: Supermarket[],
@@ -734,7 +736,8 @@ const StoreDetailView = ({
   categories: string[],
   currentPage: number,
   setCurrentPage: (n: number) => void,
-  onOpenScanner: () => void
+  onOpenScanner: () => void,
+  user: User | null
 }) => {
   const navigate = useNavigate();
   const { storeId } = useParams();
@@ -1014,6 +1017,7 @@ const StoreDetailView = ({
                     onToggleFavorite={toggleFavorite}
                     isFavorite={favorites.includes(p.id)}
                     storeLogo={currentStore.logo} 
+                    user={user}
                   />
                 ))}
               </div>
@@ -1608,7 +1612,7 @@ const App: React.FC = () => {
                         className="p-3 bg-[#0f172a] hover:bg-brand/20 text-brand rounded-full transition-all border border-gray-800 shadow-sm hover:scale-105 active:scale-95 flex items-center justify-center aspect-square"
                         title="Escanear Código"
                       >
-                        <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                        <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812-1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                       </button>
 
                       {searchQuery && (
@@ -1732,7 +1736,8 @@ const App: React.FC = () => {
                 const storeLogo = stores.find(s => s.name === p.supermarket)?.logo;
                 return (
                   <React.Fragment key={p.id}>
-                    <ProductCard product={p} onAddToList={addToList} onToggleFavorite={toggleFavorite} isFavorite={favorites.includes(p.id)} storeLogo={storeLogo} />
+                    {/* Fixed missing 'user' prop in ProductCard call */}
+                    <ProductCard product={p} onAddToList={addToList} onToggleFavorite={toggleFavorite} isFavorite={favorites.includes(p.id)} storeLogo={storeLogo} user={user} />
                     {(idx + 1) % 7 === 0 && gridBanners.length > 0 && (
                       <div className="hidden sm:flex col-span-2 rounded-[3rem] overflow-hidden bg-[#111827] relative flex-col justify-center items-start p-16 group shadow-2xl min-h-[480px]">
                         {(() => {
@@ -1854,6 +1859,7 @@ const App: React.FC = () => {
             currentPage={currentPage}
             setCurrentPage={setCurrentPage}
             onOpenScanner={() => setIsScannerOpen(true)}
+            user={user}
           />
         } />
         
@@ -1878,7 +1884,8 @@ const App: React.FC = () => {
                 <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-12">
                   {paginatedFavoritedProducts.map((p) => {
                     const storeLogo = stores.find(s => s.name === p.supermarket)?.logo;
-                    return <ProductCard key={p.id} product={p} onAddToList={addToList} onToggleFavorite={toggleFavorite} isFavorite={true} storeLogo={storeLogo} />;
+                    {/* Fixed missing 'user' prop in ProductCard call */}
+                    return <ProductCard key={p.id} product={p} onAddToList={addToList} onToggleFavorite={toggleFavorite} isFavorite={true} storeLogo={storeLogo} user={user} />;
                   })}
                 </div>
                 <Pagination 

@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Product } from '../types';
 import { slugify } from '../App';
+import { User } from '../services/firebase';
+import { ReportModal } from './ReportModal.tsx';
 
 interface ProductCardProps {
   product: Product;
@@ -10,9 +12,10 @@ interface ProductCardProps {
   onToggleFavorite: (id: string) => void;
   isFavorite: boolean;
   storeLogo?: string;
+  user: User | null;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToList, onToggleFavorite, isFavorite, storeLogo }) => {
+export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToList, onToggleFavorite, isFavorite, storeLogo, user }) => {
   const navigate = useNavigate();
   const [isAdded, setIsAdded] = useState(false);
   const [isShared, setIsShared] = useState(false);
@@ -74,7 +77,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToList, 
         className="bg-white dark:bg-[#1e293b] rounded-2xl sm:rounded-[2.5rem] shadow-[0_4px_12px_rgba(0,0,0,0.04)] sm:shadow-[0_4px_20px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_60px_rgba(0,0,0,0.1)] transition-all duration-500 overflow-hidden border border-gray-100 dark:border-gray-800 flex flex-col group relative h-full cursor-pointer"
       >
         <div className="relative pt-[85%] bg-[#f4f7f6] dark:bg-[#0f172a]/60 m-1 sm:m-2 rounded-xl sm:rounded-[2rem] overflow-hidden">
-          {/* Skeleton Loader */}
           {!imageLoaded && !imageError && (
             <div className="absolute inset-0 bg-gray-200 dark:bg-gray-800 animate-pulse flex items-center justify-center">
               <svg className="w-10 h-10 text-gray-300 dark:text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -129,7 +131,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToList, 
             </button>
           </div>
 
-          {/* Botão de Reportar posicionado de acordo com o quadrado vermelho da imagem */}
           <div className="absolute bottom-2 right-2 sm:bottom-4 sm:right-4 z-20">
             <button 
               onClick={(e) => {
@@ -214,68 +215,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToList, 
         </div>
       </div>
 
-      {/* Modal de Reporte */}
-      {isReportModalOpen && (
-        <div 
-          className="fixed inset-0 z-[500] flex items-center justify-center p-4 sm:p-6"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div 
-            className="absolute inset-0 bg-[#0f172a]/90 backdrop-blur-md animate-in fade-in duration-300"
-            onClick={() => setIsReportModalOpen(false)}
-          ></div>
-          <div className="relative bg-white dark:bg-[#1e293b] w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh] border border-gray-100 dark:border-gray-800">
-            <div className="p-6 sm:p-8 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-white/50 dark:bg-[#1e293b]/50 backdrop-blur-xl">
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-red-50 dark:bg-red-500/10 rounded-xl flex items-center justify-center text-red-500 border border-red-100 dark:border-red-900/30">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                </div>
-                <div>
-                  <h3 className="text-xl font-black text-[#111827] dark:text-white tracking-tighter">Reportar Item</h3>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-0.5">Informe problemas com este anúncio</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setIsReportModalOpen(false)} 
-                className="p-3 bg-gray-50 dark:bg-[#0f172a] text-gray-400 hover:text-red-500 rounded-2xl transition-all border border-gray-100 dark:border-gray-800"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </div>
-            
-            <div className="flex-grow overflow-y-auto custom-scrollbar p-6 sm:p-8 space-y-6">
-              {/* Previsualização do Item */}
-              <div className="bg-[#f8fafc] dark:bg-[#0f172a]/50 rounded-2xl p-4 flex items-center space-x-4 border border-gray-100 dark:border-gray-800">
-                <div className="w-20 h-20 bg-white dark:bg-gray-800 rounded-xl p-2 border border-gray-100 dark:border-gray-700 flex-shrink-0">
-                  <img 
-                    src={imageError ? fallbackImage : product.imageUrl} 
-                    className="w-full h-full object-contain pointer-events-none" 
-                    alt=""
-                  />
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-brand uppercase tracking-widest leading-none mb-1">{product.category}</p>
-                  <p className="font-extrabold text-gray-900 dark:text-white line-clamp-2 leading-tight">{product.name}</p>
-                  <p className="text-xl font-black text-gray-900 dark:text-white mt-1 tracking-tighter">R$ {currentPrice.toFixed(2).replace('.', ',')}</p>
-                </div>
-              </div>
-              
-              {/* Iframe do Formulário */}
-              <div className="relative aspect-[4/5] sm:aspect-[3/4] w-full rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 bg-white shadow-inner">
-                <iframe 
-                  src="https://formsheets.vercel.app/#/form/2" 
-                  className="w-full h-full border-none"
-                  title="Formulário de Reporte"
-                ></iframe>
-              </div>
-            </div>
-            
-            <div className="p-4 bg-gray-50/50 dark:bg-[#0f172a]/50 text-center border-t border-gray-100 dark:border-gray-800">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[2px]">Agradecemos sua ajuda para melhorar o EcoFeira</p>
-            </div>
-          </div>
-        </div>
-      )}
+      <ReportModal 
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        product={product}
+        user={user}
+      />
     </>
   );
 };
