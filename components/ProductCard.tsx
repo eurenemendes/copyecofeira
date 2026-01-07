@@ -1,9 +1,8 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Product } from '../types';
 import { slugify } from '../App';
-import { User } from '../services/firebase';
 
 interface ProductCardProps {
   product: Product;
@@ -11,10 +10,9 @@ interface ProductCardProps {
   onToggleFavorite: (id: string) => void;
   isFavorite: boolean;
   storeLogo?: string;
-  user?: User | null;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToList, onToggleFavorite, isFavorite, storeLogo, user }) => {
+export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToList, onToggleFavorite, isFavorite, storeLogo }) => {
   const navigate = useNavigate();
   const [isAdded, setIsAdded] = useState(false);
   const [isShared, setIsShared] = useState(false);
@@ -25,28 +23,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToList, 
   const currentPrice = product.isPromo ? product.promoPrice : product.normalPrice;
   const discount = product.isPromo ? Math.round((1 - product.promoPrice / product.normalPrice) * 100) : 0;
 
-  // Constrói o link direto do produto
-  const productLink = useMemo(() => {
-    const baseUrl = window.location.href.split('#')[0].replace(/\/$/, "");
-    const storeSlug = slugify(product.supermarket);
-    const categorySlug = slugify(product.category);
-    const nameSlug = slugify(product.name);
-    return `${baseUrl}/#/${storeSlug}/${categorySlug}/${product.id}/${nameSlug}`;
-  }, [product]);
-
-  // Constrói a URL do Iframe com os parâmetros solicitados
-  const reportIframeUrl = useMemo(() => {
-    const params = new URLSearchParams({
-      userId: user?.uid || 'anonimo',
-      productId: product.id,
-      productName: product.name,
-      productCategory: product.category,
-      productLink: productLink,
-      storeName: product.supermarket
-    });
-    return `https://formsheets.vercel.app/#/form/2?${params.toString()}`;
-  }, [user, product, productLink]);
-
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
     onAddToList(product);
@@ -56,17 +32,23 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToList, 
 
   const handleShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    const baseUrl = window.location.href.split('#')[0].replace(/\/$/, "");
+    const storeSlug = slugify(product.supermarket);
+    const categorySlug = slugify(product.category);
+    const nameSlug = slugify(product.name);
+    const shareUrl = `${baseUrl}/#/${storeSlug}/${categorySlug}/${product.id}/${nameSlug}`;
+    
     const shareData = {
       title: `EcoFeira - ${product.name}`,
       text: `Confira esta oferta no ${product.supermarket}: ${product.name} por apenas R$ ${currentPrice.toFixed(2).replace('.', ',')}!`,
-      url: productLink,
+      url: shareUrl,
     };
 
     try {
       if (navigator.share) {
         await navigator.share(shareData);
       } else {
-        await navigator.clipboard.writeText(productLink);
+        await navigator.clipboard.writeText(shareUrl);
         setIsShared(true);
         setTimeout(() => setIsShared(false), 2000);
       }
@@ -76,7 +58,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToList, 
   };
 
   const handleCardClick = () => {
-    navigate(`/${slugify(product.supermarket)}/${slugify(product.category)}/${product.id}/${slugify(product.name)}`);
+    const storeSlug = slugify(product.supermarket);
+    const categorySlug = slugify(product.category);
+    const nameSlug = slugify(product.name);
+    navigate(`/${storeSlug}/${categorySlug}/${product.id}/${nameSlug}`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -89,6 +74,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToList, 
         className="bg-white dark:bg-[#1e293b] rounded-2xl sm:rounded-[2.5rem] shadow-[0_4px_12px_rgba(0,0,0,0.04)] sm:shadow-[0_4px_20px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_60px_rgba(0,0,0,0.1)] transition-all duration-500 overflow-hidden border border-gray-100 dark:border-gray-800 flex flex-col group relative h-full cursor-pointer"
       >
         <div className="relative pt-[85%] bg-[#f4f7f6] dark:bg-[#0f172a]/60 m-1 sm:m-2 rounded-xl sm:rounded-[2rem] overflow-hidden">
+          {/* Skeleton Loader */}
           {!imageLoaded && !imageError && (
             <div className="absolute inset-0 bg-gray-200 dark:bg-gray-800 animate-pulse flex items-center justify-center">
               <svg className="w-10 h-10 text-gray-300 dark:text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -105,6 +91,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToList, 
             className={`absolute inset-0 w-full h-full object-contain p-4 sm:p-8 transition-all duration-700 group-hover:scale-110 pointer-events-none select-none ${imageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
             loading="lazy"
             draggable={false}
+            onContextMenu={(e) => e.preventDefault()}
           />
           
           {product.isPromo && discount > 0 && (
@@ -142,6 +129,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToList, 
             </button>
           </div>
 
+          {/* Botão de Reportar posicionado de acordo com o quadrado vermelho da imagem */}
           <div className="absolute bottom-2 right-2 sm:bottom-4 sm:right-4 z-20">
             <button 
               onClick={(e) => {
@@ -160,7 +148,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToList, 
           {storeLogo && (
             <div className="absolute bottom-2 left-2 sm:bottom-4 sm:left-4 flex items-center bg-white/90 dark:bg-[#1e293b]/90 backdrop-blur-md rounded-lg sm:rounded-2xl p-1 pr-2 sm:p-1.5 sm:pr-4 shadow-lg border border-gray-100 dark:border-gray-700 z-10">
               <div className="w-5 h-5 sm:w-8 h-8 bg-white dark:bg-gray-800 rounded-md sm:rounded-xl p-0.5 sm:p-1 mr-1 sm:mr-2 shadow-sm flex items-center justify-center">
-                <img src={storeLogo} alt={product.supermarket} className="w-full h-full object-contain pointer-events-none" />
+                <img 
+                  src={storeLogo} 
+                  alt={product.supermarket} 
+                  className="w-full h-full object-contain pointer-events-none" 
+                />
               </div>
               <span className="text-[7px] sm:text-[10px] font-[1000] text-gray-700 dark:text-gray-100 uppercase tracking-wider truncate max-w-[50px] sm:max-w-[120px]">
                 {product.supermarket}
@@ -222,6 +214,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToList, 
         </div>
       </div>
 
+      {/* Modal de Reporte */}
       {isReportModalOpen && (
         <div 
           className="fixed inset-0 z-[500] flex items-center justify-center p-4 sm:p-6"
@@ -251,11 +244,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToList, 
             </div>
             
             <div className="flex-grow overflow-y-auto custom-scrollbar p-6 sm:p-8 space-y-6">
+              {/* Previsualização do Item */}
               <div className="bg-[#f8fafc] dark:bg-[#0f172a]/50 rounded-2xl p-4 flex items-center space-x-4 border border-gray-100 dark:border-gray-800">
                 <div className="w-20 h-20 bg-white dark:bg-gray-800 rounded-xl p-2 border border-gray-100 dark:border-gray-700 flex-shrink-0">
                   <img 
                     src={imageError ? fallbackImage : product.imageUrl} 
-                    className="w-full h-full object-contain" 
+                    className="w-full h-full object-contain pointer-events-none" 
                     alt=""
                   />
                 </div>
@@ -265,25 +259,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToList, 
                   <p className="text-xl font-black text-gray-900 dark:text-white mt-1 tracking-tighter">R$ {currentPrice.toFixed(2).replace('.', ',')}</p>
                 </div>
               </div>
-
-              <div className="bg-orange-50 dark:bg-orange-950/20 p-4 rounded-xl border border-orange-100 dark:border-orange-900/30 text-center">
-                <p className="text-orange-700 dark:text-orange-300 text-xs font-bold mb-3">
-                  Caso o formulário abaixo não carregue devido a restrições de segurança do provedor, utilize o botão abaixo:
-                </p>
-                <a 
-                  href={reportIframeUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-black rounded-xl transition-all shadow-lg shadow-orange-500/20 text-xs uppercase tracking-widest"
-                >
-                  Abrir Formulário Externo
-                  <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                </a>
-              </div>
               
+              {/* Iframe do Formulário */}
               <div className="relative aspect-[4/5] sm:aspect-[3/4] w-full rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 bg-white shadow-inner">
                 <iframe 
-                  src={reportIframeUrl} 
+                  src="https://formsheets.vercel.app/#/form/2" 
                   className="w-full h-full border-none"
                   title="Formulário de Reporte"
                 ></iframe>
