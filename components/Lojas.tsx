@@ -1,6 +1,7 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Supermarket } from '../types';
+import { InputClearButton } from './ui/InputClearButton.tsx';
+import { SearchInput } from './ui/SearchInput.tsx';
 
 interface LojasProps {
   stores: Supermarket[];
@@ -55,29 +56,18 @@ export const Lojas: React.FC<LojasProps> = ({ stores, onStoreClick }) => {
         <div className="relative w-full lg:w-[450px] group" ref={suggestionRef}>
           <div className="absolute inset-0 bg-gray-100 dark:bg-gray-800/40 rounded-xl sm:rounded-[2.5rem] -m-1"></div>
           <div className="relative flex items-center bg-white dark:bg-[#1e293b] rounded-xl sm:rounded-[2.5rem] border border-gray-100 dark:border-gray-700 shadow-sm transition-all focus-within:ring-4 focus-within:ring-brand/10">
-            <div className="pl-4 sm:pl-8 pr-2 sm:pr-4 text-gray-400">
-              <svg className="w-5 h-5 sm:w-7 sm:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-            <input 
-              type="text" 
-              placeholder="Nome ou Bairro..." 
-              value={storeSearchQuery} 
-              onChange={(e) => {setStoreSearchQuery(e.target.value); setShowStoreSuggestions(true);}} 
-              onFocus={() => setShowStoreSuggestions(true)} 
-              className="w-full bg-transparent border-none focus:ring-0 py-4 sm:py-6 text-base sm:text-xl font-bold dark:text-white outline-none" 
+            <SearchInput 
+              value={storeSearchQuery}
+              onChange={(val) => {setStoreSearchQuery(val); setShowStoreSuggestions(true);}}
+              onFocus={() => setShowStoreSuggestions(true)}
+              placeholder="Nome ou Bairro..."
+              iconClassName="text-gray-400"
+              hideIconOnMobile={false}
+              inputClassName="py-4 sm:py-6"
             />
             <div className="p-2 pr-3 sm:pr-4">
               {storeSearchQuery && (
-                <button 
-                  onClick={() => {setStoreSearchQuery(''); setShowStoreSuggestions(false);}} 
-                  className="bg-red-500 text-white p-2.5 sm:p-4 rounded-lg shadow-red-500/20 hover:scale-105 transition-all"
-                >
-                  <svg className="w-4 h-4 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                <InputClearButton onClick={() => {setStoreSearchQuery(''); setShowStoreSuggestions(false);}} size="md" />
               )}
             </div>
           </div>
