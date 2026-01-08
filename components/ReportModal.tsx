@@ -111,7 +111,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, produ
             <iframe 
               ref={iframeRef}
               onLoad={handleIframeLoad}
-              src="https://formsheets.vercel.app/#/form/2" 
+              src="https://formsheets.vercel.app" 
               className="w-full h-full border-none"
               title="Formulário de Reporte"
             ></iframe>
