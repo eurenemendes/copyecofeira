@@ -10,11 +10,32 @@ interface ScannerModalProps {
   onScanSuccess: (code: string) => void;
 }
 
+const ErrorOverlay = ({ message, onRetry }: { message: string, onRetry: () => void }) => (
+  <div className="absolute inset-0 z-[310] flex items-center justify-center p-6 bg-[#0f172a]/80 backdrop-blur-md animate-in fade-in duration-300">
+    <div className="bg-white dark:bg-[#1e293b] p-8 rounded-[2.5rem] shadow-2xl border border-gray-100 dark:border-gray-800 text-center space-y-6 max-w-[280px] transform animate-in zoom-in-95 duration-300">
+      <div className="w-16 h-16 bg-red-50 dark:bg-red-500/10 rounded-2xl flex items-center justify-center text-red-500 mx-auto border border-red-100 dark:border-red-900/20">
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+      </div>
+      <h4 className="text-gray-900 dark:text-white font-black text-lg tracking-tight leading-tight">Ops! Código não identificado</h4>
+      <p className="text-gray-500 dark:text-gray-400 text-xs font-bold leading-relaxed">{message}</p>
+      <button 
+        onClick={onRetry}
+        className="w-full bg-brand text-white font-black py-4 rounded-2xl shadow-xl shadow-brand/20 hover:scale-105 active:scale-95 transition-all uppercase text-[10px] tracking-widest"
+      >
+        Tentar Novamente
+      </button>
+    </div>
+  </div>
+);
+
 export const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onScanSuccess }) => {
   const [cameras, setCameras] = useState<any[]>([]);
   const [selectedCameraId, setSelectedCameraId] = useState<string>('');
   const [isScanning, setIsScanning] = useState(false);
   const [isTorchOn, setIsTorchOn] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const scannerRef = useRef<any>(null);
   const containerId = "qr-reader";
 
@@ -32,6 +53,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onS
       }).catch((err: any) => console.error("Erro ao listar câmeras", err));
     } else {
       stopScanner();
+      setErrorMessage(null);
     }
     return () => {
       stopScanner();
@@ -40,6 +62,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onS
 
   const startScanner = async () => {
     if (!selectedCameraId) return;
+    setErrorMessage(null);
     scannerRef.current = new Html5Qrcode(containerId);
     try {
       setIsScanning(true);
@@ -59,6 +82,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onS
     } catch (err) {
       console.error("Falha ao iniciar scanner", err);
       setIsScanning(false);
+      setErrorMessage("Não foi possível acessar a câmera selecionada.");
     }
   };
 
@@ -92,6 +116,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onS
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setErrorMessage(null);
     const html5QrCode = new Html5Qrcode(containerId);
     html5QrCode.scanFile(file, true)
       .then(decodedText => {
@@ -99,7 +124,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onS
         onClose();
       })
       .catch(err => {
-        alert("Não foi possível detectar um código nesta imagem.");
+        setErrorMessage("Não conseguimos ler nenhum código de barras ou QR Code nesta imagem. Tente uma foto mais nítida.");
       });
   };
 
@@ -109,6 +134,14 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onS
     <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-[#0f172a]/90 backdrop-blur-md" onClick={onClose}></div>
       <div className="relative bg-white dark:bg-[#1e293b] w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]">
+        
+        {errorMessage && (
+          <ErrorOverlay 
+            message={errorMessage} 
+            onRetry={() => setErrorMessage(null)} 
+          />
+        )}
+
         <div className="p-8 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-white/50 dark:bg-[#1e293b]/50 backdrop-blur-xl">
           <div>
             <h3 className="text-2xl font-black text-[#111827] dark:text-white tracking-tighter">Leitor de Código</h3>
