@@ -48,11 +48,13 @@ export const optimizeShoppingList = async (items: ShoppingListItem[], availableP
       }
     });
 
-    if (!response || !response.text) {
+    // Accessing .text as a property as per latest Gemini SDK guidelines
+    const text = response.text;
+    if (!text) {
       throw new Error("Resposta vazia da IA.");
     }
 
-    return response.text;
+    return text;
   } catch (error: any) {
     console.error("Erro crítico no GeminiService:", error);
     

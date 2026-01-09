@@ -7,7 +7,7 @@ declare const Html5Qrcode: any;
 interface ScannerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onScanSuccess: (code: string) => void;
+  onScanSuccess: (code: string) => boolean; // Alterado para retornar boolean (sucesso da validação)
 }
 
 const ErrorOverlay = ({ message, onRetry }: { message: string, onRetry: () => void }) => (
@@ -18,7 +18,7 @@ const ErrorOverlay = ({ message, onRetry }: { message: string, onRetry: () => vo
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
         </svg>
       </div>
-      <h4 className="text-gray-900 dark:text-white font-black text-lg tracking-tight leading-tight">Ops! Código não identificado</h4>
+      <h4 className="text-gray-900 dark:text-white font-black text-lg tracking-tight leading-tight">Ops! Código inválido</h4>
       <p className="text-gray-500 dark:text-gray-400 text-xs font-bold leading-relaxed">{message}</p>
       <button 
         onClick={onRetry}
@@ -73,9 +73,15 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onS
           qrbox: { width: 250, height: 250 },
           aspectRatio: 1.0
         },
-        (decodedText: string) => {
-          onScanSuccess(decodedText);
-          onClose();
+        async (decodedText: string) => {
+          const isValid = onScanSuccess(decodedText);
+          if (isValid) {
+            onClose();
+          } else {
+            // Se o código for lido mas não for válido (não existe no banco), para o leitor e avisa no modal
+            await stopScanner();
+            setErrorMessage("Este código não foi encontrado em nosso banco de dados ou é inválido.");
+          }
         },
         (errorMessage: string) => {}
       );
@@ -112,16 +118,23 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ isOpen, onClose, onS
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setErrorMessage(null);
+    // Se a câmera estiver rodando, para antes de processar o arquivo
+    await stopScanner();
+    
     const html5QrCode = new Html5Qrcode(containerId);
     html5QrCode.scanFile(file, true)
       .then(decodedText => {
-        onScanSuccess(decodedText);
-        onClose();
+        const isValid = onScanSuccess(decodedText);
+        if (isValid) {
+          onClose();
+        } else {
+          setErrorMessage("O código presente na imagem não foi encontrado em nosso banco de dados.");
+        }
       })
       .catch(err => {
         setErrorMessage("Não conseguimos ler nenhum código de barras ou QR Code nesta imagem. Tente uma foto mais nítida.");
