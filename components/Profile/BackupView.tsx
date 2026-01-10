@@ -25,7 +25,7 @@ export const BackupView: React.FC<BackupViewProps> = ({ user }) => {
   
   // Client ID do Google Cloud (Configurado para o projeto EcoFeira)
   // Nota: Este ID deve estar com o domínio atual autorizado no Console do Google
-  const GOOGLE_CLIENT_ID = '349676062186-v8q6o4v7v7v7v7v7v7v7v7v7v7v7v7v7.apps.googleusercontent.com'; // Placeholder baseado no SenderID ou ID real do projeto
+  const GOOGLE_CLIENT_ID = '349676062186-jsle32i8463qpad128u2g7grjtj4td33.apps.googleusercontent.com';
 
   // Função para enviar resposta do token de volta para o iframe filho
   const sendTokenToChild = useCallback((token: string | null, error?: string) => {
