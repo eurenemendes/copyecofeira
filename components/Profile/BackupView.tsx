@@ -104,6 +104,13 @@ export const BackupView: React.FC<BackupViewProps> = ({ user }) => {
             src={BACKUP_SYSTEM_URL}
             className="w-full h-full border-none"
             title="DriveVault - Gerenciador de Backup do EcoFeira"
+            /* 
+               CRÍTICO: Adicionando permissões para OAuth e Popups.
+               - allow="identity-credentials-get": Necessário para Google One Tap / Identity Services.
+               - sandbox: Libera scripts, popups fora do iframe e acesso ao armazenamento.
+            */
+            allow="identity-credentials-get; clipboard-write"
+            sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-popups-to-escape-sandbox allow-storage-access-by-user-activation"
           />
           
           {!isIframeReady && (
