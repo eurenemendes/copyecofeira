@@ -65,7 +65,8 @@ export const BackupView: React.FC<BackupViewProps> = ({ user }) => {
       if (window.google) {
         tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
           client_id: GOOGLE_CLIENT_ID,
-          scope: 'https://www.googleapis.com/auth/drive.file',
+          // Escopo atualizado para incluir drive.appdata, necessário para o DriverVault
+          scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.appdata',
           callback: handleTokenResponse,
         });
       }
