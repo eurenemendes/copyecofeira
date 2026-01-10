@@ -2,6 +2,7 @@
 import React, { useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User } from '../../services/firebase';
+import { getBackupPayload, restoreAppData } from './BackupDataManager';
 
 interface BackupViewProps {
   user: User | null;
@@ -11,7 +12,7 @@ export const BackupView: React.FC<BackupViewProps> = ({ user }) => {
   const navigate = useNavigate();
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // URL do sistema filho responsável pelo backup (placeholder que será substituído pelo real)
+  // URL do sistema filho responsável pelo backup
   const BACKUP_SYSTEM_URL = "https://ecofeira-backup.vercel.app";
 
   useEffect(() => {
@@ -20,33 +21,37 @@ export const BackupView: React.FC<BackupViewProps> = ({ user }) => {
       return;
     }
 
+    // Handler para mensagens vindas do iframe (ex: comando de restore)
+    const handleMessage = (event: MessageEvent) => {
+      // Segurança: Verifica a origem da mensagem
+      if (event.origin !== BACKUP_SYSTEM_URL) return;
+
+      const { type, payload } = event.data;
+
+      if (type === 'ECOFEIRA_RESTORE_DATA') {
+        console.log("📥 EcoFeira: Recebendo dados de restauração do backup...");
+        restoreAppData(payload);
+      }
+    };
+
     const handleIframeLoad = () => {
       if (iframeRef.current && user) {
-        const backupData = {
-          type: 'ECOFEIRA_BACKUP_INIT',
-          user: {
-            uid: user.uid,
-            displayName: user.displayName,
-            email: user.email,
-            photoURL: user.photoURL,
-          },
-          timestamp: new Date().toISOString(),
-          // Aqui poderiam ser enviados também os dados locais do localStorage se necessário
-          favorites: JSON.parse(localStorage.getItem('ecofeira_favorites') || '[]'),
-          shoppingList: JSON.parse(localStorage.getItem('ecofeira_shopping_list') || '[]')
-        };
+        // Usa o DataManager para construir o payload completo e seguro
+        const backupData = getBackupPayload(user);
 
         console.log("📤 EcoFeira: Enviando contexto de backup para sistema filho...");
         iframeRef.current.contentWindow?.postMessage(backupData, BACKUP_SYSTEM_URL);
       }
     };
 
+    window.addEventListener('message', handleMessage);
     const iframe = iframeRef.current;
     if (iframe) {
       iframe.addEventListener('load', handleIframeLoad);
     }
 
     return () => {
+      window.removeEventListener('message', handleMessage);
       if (iframe) {
         iframe.removeEventListener('load', handleIframeLoad);
       }
@@ -74,7 +79,6 @@ export const BackupView: React.FC<BackupViewProps> = ({ user }) => {
           <div className="flex items-center space-x-6 relative z-10">
             <div className="w-16 h-16 bg-blue-50 dark:bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-500 border border-blue-100 dark:border-blue-900/30 shadow-lg">
               <svg className="w-10 h-10" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z" className="opacity-0"/>
                 <path d="M7.71,3.5L1.15,15L4.58,21L11.13,9.5L7.71,3.5M9.73,15L6.3,21H19.42L22.85,15H9.73M15,3.5L11.58,9.5L18.13,21L21.56,15L15,3.5Z" />
               </svg>
             </div>
