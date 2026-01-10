@@ -405,7 +405,6 @@ const App: React.FC = () => {
   const [scanErrorMessage, setScanErrorMessage] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  // Using explicit type assertions for JSON.parse to ensure state is correctly typed as string[] and avoid 'unknown' errors in maps
   const [scannedHistory, setScannedHistory] = useState<string[]>(() => JSON.parse(localStorage.getItem('ecofeira_scanned_history') || '[]') as string[]);
   const [recentSearches, setRecentSearches] = useState<string[]>(() => JSON.parse(localStorage.getItem('ecofeira_recent_searches') || '[]') as string[]);
   const categoriesRef = useRef<HTMLDivElement>(null);
@@ -441,7 +440,39 @@ const App: React.FC = () => {
   }, []);
 
   const handleLogin = async () => { try { await signInWithPopup(auth, googleProvider); } catch (error) {} };
-  const handleLogout = async () => { try { await signOut(auth); navigate('/'); } catch (error) {} };
+  
+  /**
+   * handleLogout - Gerencia o encerramento da sessão do usuário.
+   * SEGURANÇA: Limpa todos os dados sensíveis do LocalStorage e estados do React.
+   * Isso garante que nenhum dado privado permaneça no dispositivo após a saída.
+   */
+  const handleLogout = async () => { 
+    try { 
+      // 1. Realiza o logout no provedor de autenticação (Firebase)
+      await signOut(auth); 
+      
+      // 2. PRIVACIDADE: Limpeza do LocalStorage
+      // Removemos chaves que contém dados específicos do comportamento e preferências do usuário logado.
+      localStorage.removeItem('ecofeira_favorites');
+      localStorage.removeItem('ecofeira_shopping_list');
+      localStorage.removeItem('ecofeira_recent_searches');
+      localStorage.removeItem('ecofeira_scanned_history');
+
+      // 3. LIMPEZA DE ESTADO EM MEMÓRIA:
+      // Resetamos os estados para garantir que a UI reflita a conta vazia imediatamente.
+      setFavorites([]);
+      setShoppingList([]);
+      setRecentSearches([]);
+      setScannedHistory([]);
+      
+      // 4. Navegação
+      navigate('/'); 
+      console.log("🔐 EcoFeira: Sessão encerrada e dados locais limpos com segurança.");
+    } catch (error) {
+      console.error("Erro ao encerrar sessão:", error);
+    } 
+  };
+
   useEffect(() => { if (!loading) localStorage.setItem('ecofeira_favorites', JSON.stringify(favorites)); }, [favorites, loading]);
   useEffect(() => { if (!loading) localStorage.setItem('ecofeira_shopping_list', JSON.stringify(shoppingList)); }, [shoppingList, loading]);
   useEffect(() => localStorage.setItem('ecofeira_recent_searches', JSON.stringify(recentSearches)), [recentSearches]);
@@ -521,7 +552,7 @@ const App: React.FC = () => {
     return {
       stores: stores.length,
       products: products.length,
-      categories: categories.length - 1, // Descontando "Todas"
+      categories: categories.length - 1, 
       promos: products.filter(p => p.isPromo).length
     };
   }, [products, stores, categories]);
