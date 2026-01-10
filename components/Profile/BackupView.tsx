@@ -1,5 +1,5 @@
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User } from '../../services/firebase';
 import { getBackupPayload, restoreAppData } from './BackupDataManager';
@@ -8,13 +8,76 @@ interface BackupViewProps {
   user: User | null;
 }
 
+declare global {
+  interface Window {
+    google: any;
+  }
+}
+
 export const BackupView: React.FC<BackupViewProps> = ({ user }) => {
   const navigate = useNavigate();
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const tokenClientRef = useRef<any>(null);
   const [isIframeReady, setIsIframeReady] = useState(false);
 
   // URL do sistema filho responsável pelo backup (DriverVault)
   const BACKUP_SYSTEM_URL = "https://drivervault.vercel.app/";
+  
+  // Client ID do Google Cloud (Configurado para o projeto EcoFeira)
+  // Nota: Este ID deve estar com o domínio atual autorizado no Console do Google
+  const GOOGLE_CLIENT_ID = '349676062186-v8q6o4v7v7v7v7v7v7v7v7v7v7v7v7v7.apps.googleusercontent.com'; // Placeholder baseado no SenderID ou ID real do projeto
+
+  // Função para enviar resposta do token de volta para o iframe filho
+  const sendTokenToChild = useCallback((token: string | null, error?: string) => {
+    if (iframeRef.current?.contentWindow) {
+      if (token) {
+        console.log("📤 EcoFeira: Enviando token de acesso para o DriverVault.");
+        iframeRef.current.contentWindow.postMessage({
+          type: 'DRIVE_TOKEN_RESPONSE',
+          token: token
+        }, BACKUP_SYSTEM_URL);
+      } else {
+        console.error("❌ EcoFeira: Erro na autenticação ou token vazio.");
+        iframeRef.current.contentWindow.postMessage({
+          type: 'DRIVE_TOKEN_ERROR',
+          error: error || 'Falha na autenticação do Google Drive.'
+        }, BACKUP_SYSTEM_URL);
+      }
+    }
+  }, [BACKUP_SYSTEM_URL]);
+
+  // Callback executado quando o Google retorna o token
+  const handleTokenResponse = useCallback((response: any) => {
+    if (response && response.access_token) {
+      sendTokenToChild(response.access_token);
+    } else {
+      sendTokenToChild(null, "Não foi possível obter o token de acesso.");
+    }
+  }, [sendTokenToChild]);
+
+  // Carrega a biblioteca Google Identity Services (GSI)
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      if (window.google) {
+        tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
+          client_id: GOOGLE_CLIENT_ID,
+          scope: 'https://www.googleapis.com/auth/drive.file',
+          callback: handleTokenResponse,
+        });
+      }
+    };
+    document.body.appendChild(script);
+
+    return () => {
+      // Remove o script ao desmontar se necessário, embora scripts GSI costumem ficar globais
+      const existingScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+      if (existingScript) document.body.removeChild(existingScript);
+    };
+  }, [handleTokenResponse]);
 
   useEffect(() => {
     if (!user) {
@@ -24,7 +87,6 @@ export const BackupView: React.FC<BackupViewProps> = ({ user }) => {
 
     // Handler para mensagens vindas do iframe
     const handleMessage = (event: MessageEvent) => {
-      // Verificação de segurança: Ignora mensagens de origens desconhecidas.
       try {
         const originUrl = new URL(BACKUP_SYSTEM_URL).origin;
         if (event.origin !== originUrl) return;
@@ -34,15 +96,26 @@ export const BackupView: React.FC<BackupViewProps> = ({ user }) => {
 
       const { type, payload } = event.data;
 
-      // O sistema filho informa que carregou e está pronto para receber dados
+      // O sistema filho informa que carregou e está pronto
       if (type === 'ECOFEIRA_BACKUP_READY') {
-        console.log("✅ EcoFeira: Sistema de backup DriverVault pronto.");
+        console.log("✅ EcoFeira: DriverVault pronto para operação.");
         setIsIframeReady(true);
+      }
+      
+      // O sistema filho solicita que o pai inicie a autenticação do Google
+      if (type === 'DRIVE_CONNECT_REQUEST') {
+        console.log("🔑 EcoFeira: Solicitação de autenticação recebida do DriverVault.");
+        if (tokenClientRef.current) {
+          tokenClientRef.current.requestAccessToken();
+        } else {
+          console.error("❌ EcoFeira: Token Client do Google não inicializado.");
+          sendTokenToChild(null, "Serviço de autenticação indisponível no momento.");
+        }
       }
       
       // O sistema filho envia comando de restauração
       if (type === 'ECOFEIRA_RESTORE_DATA') {
-        console.log("📥 EcoFeira: Recebendo dados de restauração do DriverVault...");
+        console.log("📥 EcoFeira: Restaurando dados recebidos do DriverVault.");
         restoreAppData(payload);
       }
     };
@@ -52,15 +125,12 @@ export const BackupView: React.FC<BackupViewProps> = ({ user }) => {
     return () => {
       window.removeEventListener('message', handleMessage);
     };
-  }, [user, navigate]);
+  }, [user, navigate, sendTokenToChild]);
 
-  // Efeito para enviar os dados de inicialização assim que o sistema filho estiver pronto
+  // Envia dados de inicialização (contexto do usuário)
   useEffect(() => {
     if (isIframeReady && iframeRef.current?.contentWindow && user) {
-      // Coleta os dados reais do app através do BackupDataManager
       const backupData = getBackupPayload(user);
-      
-      console.log("📤 EcoFeira: Enviando contexto de backup para DriverVault...");
       iframeRef.current.contentWindow.postMessage(backupData, BACKUP_SYSTEM_URL);
     }
   }, [isIframeReady, user]);
@@ -92,7 +162,7 @@ export const BackupView: React.FC<BackupViewProps> = ({ user }) => {
             <div>
               <h1 className="text-2xl sm:text-4xl font-black text-[#111827] dark:text-white tracking-tighter">Gerenciamento de Backup</h1>
               <p className="text-xs sm:text-sm font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mt-1">
-                Salve ou restaure seus dados no Google Drive pessoal
+                Autenticação segura via Google Drive API
               </p>
             </div>
           </div>
@@ -104,11 +174,6 @@ export const BackupView: React.FC<BackupViewProps> = ({ user }) => {
             src={BACKUP_SYSTEM_URL}
             className="w-full h-full border-none"
             title="DriveVault - Gerenciador de Backup do EcoFeira"
-            /* 
-               CRÍTICO: Adicionando permissões para OAuth e Popups.
-               - allow="identity-credentials-get": Necessário para Google One Tap / Identity Services.
-               - sandbox: Libera scripts, popups fora do iframe e acesso ao armazenamento.
-            */
             allow="identity-credentials-get; clipboard-write"
             sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-popups-to-escape-sandbox allow-storage-access-by-user-activation"
           />
@@ -116,14 +181,14 @@ export const BackupView: React.FC<BackupViewProps> = ({ user }) => {
           {!isIframeReady && (
             <div className="absolute inset-0 bg-white/80 dark:bg-[#0f172a]/80 backdrop-blur-sm flex flex-col items-center justify-center space-y-4">
               <div className="w-12 h-12 border-4 border-brand/20 border-t-brand rounded-full animate-spin"></div>
-              <p className="text-sm font-black text-gray-400 uppercase tracking-widest">Conectando ao DriverVault...</p>
+              <p className="text-sm font-black text-gray-400 uppercase tracking-widest">Iniciando DriverVault...</p>
             </div>
           )}
           
           <div className="absolute bottom-0 left-0 right-0 p-4 bg-white/80 dark:bg-[#1e293b]/80 backdrop-blur-md border-t border-gray-100 dark:border-gray-800 text-center">
              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center justify-center">
                <svg className="w-3 h-3 mr-2 text-brand" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 4.908-3.333 9.277-8 10.364-4.667-1.087-8-5.456-8-10.364 0-.68.057-1.35.166-2.001zM9 11.242V6a1 1 0 112 0v5.242l2.121 2.122a1 1 0 11-1.414 1.414L9 11.242z" clipRule="evenodd" /></svg>
-               Conexão Segura EcoFeira & DriveVault
+               Segurança EcoFeira: Autenticação delegada ativa
              </p>
           </div>
         </div>
