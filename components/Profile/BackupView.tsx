@@ -1,5 +1,5 @@
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User } from '../../services/firebase';
 import { getBackupPayload, restoreAppData } from './BackupDataManager';
@@ -11,9 +11,10 @@ interface BackupViewProps {
 export const BackupView: React.FC<BackupViewProps> = ({ user }) => {
   const navigate = useNavigate();
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [isIframeReady, setIsIframeReady] = useState(false);
 
-  // URL do sistema filho responsável pelo backup
-  const BACKUP_SYSTEM_URL = "https://ecofeira-backup.vercel.app";
+  // URL do sistema filho responsável pelo backup (DriverVault)
+  const BACKUP_SYSTEM_URL = "https://drivervault.vercel.app/";
 
   useEffect(() => {
     if (!user) {
@@ -21,42 +22,48 @@ export const BackupView: React.FC<BackupViewProps> = ({ user }) => {
       return;
     }
 
-    // Handler para mensagens vindas do iframe (ex: comando de restore)
+    // Handler para mensagens vindas do iframe
     const handleMessage = (event: MessageEvent) => {
-      // Segurança: Verifica a origem da mensagem
-      if (event.origin !== BACKUP_SYSTEM_URL) return;
+      // Verificação de segurança: Ignora mensagens de origens desconhecidas.
+      try {
+        const originUrl = new URL(BACKUP_SYSTEM_URL).origin;
+        if (event.origin !== originUrl) return;
+      } catch (e) {
+        return;
+      }
 
       const { type, payload } = event.data;
 
+      // O sistema filho informa que carregou e está pronto para receber dados
+      if (type === 'ECOFEIRA_BACKUP_READY') {
+        console.log("✅ EcoFeira: Sistema de backup DriverVault pronto.");
+        setIsIframeReady(true);
+      }
+      
+      // O sistema filho envia comando de restauração
       if (type === 'ECOFEIRA_RESTORE_DATA') {
-        console.log("📥 EcoFeira: Recebendo dados de restauração do backup...");
+        console.log("📥 EcoFeira: Recebendo dados de restauração do DriverVault...");
         restoreAppData(payload);
       }
     };
 
-    const handleIframeLoad = () => {
-      if (iframeRef.current && user) {
-        // Usa o DataManager para construir o payload completo e seguro
-        const backupData = getBackupPayload(user);
-
-        console.log("📤 EcoFeira: Enviando contexto de backup para sistema filho...");
-        iframeRef.current.contentWindow?.postMessage(backupData, BACKUP_SYSTEM_URL);
-      }
-    };
-
     window.addEventListener('message', handleMessage);
-    const iframe = iframeRef.current;
-    if (iframe) {
-      iframe.addEventListener('load', handleIframeLoad);
-    }
-
+    
     return () => {
       window.removeEventListener('message', handleMessage);
-      if (iframe) {
-        iframe.removeEventListener('load', handleIframeLoad);
-      }
     };
   }, [user, navigate]);
+
+  // Efeito para enviar os dados de inicialização assim que o sistema filho estiver pronto
+  useEffect(() => {
+    if (isIframeReady && iframeRef.current?.contentWindow && user) {
+      // Coleta os dados reais do app através do BackupDataManager
+      const backupData = getBackupPayload(user);
+      
+      console.log("📤 EcoFeira: Enviando contexto de backup para DriverVault...");
+      iframeRef.current.contentWindow.postMessage(backupData, BACKUP_SYSTEM_URL);
+    }
+  }, [isIframeReady, user]);
 
   if (!user) return null;
 
@@ -83,24 +90,33 @@ export const BackupView: React.FC<BackupViewProps> = ({ user }) => {
               </svg>
             </div>
             <div>
-              <h1 className="text-2xl sm:text-4xl font-black text-[#111827] dark:text-white tracking-tighter">Backup no Drive</h1>
-              <p className="text-xs sm:text-sm font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mt-1">Sincronize sua economia na nuvem</p>
+              <h1 className="text-2xl sm:text-4xl font-black text-[#111827] dark:text-white tracking-tighter">Gerenciamento de Backup</h1>
+              <p className="text-xs sm:text-sm font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mt-1">
+                Salve ou restaure seus dados no Google Drive pessoal
+              </p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#1e293b] rounded-[3rem] border border-gray-100 dark:border-gray-800 overflow-hidden shadow-2xl h-[600px] relative">
+        <div className="bg-white dark:bg-[#1e293b] rounded-[3rem] border border-gray-100 dark:border-gray-800 overflow-hidden shadow-2xl h-[700px] relative">
           <iframe 
             ref={iframeRef}
             src={BACKUP_SYSTEM_URL}
             className="w-full h-full border-none"
-            title="Sincronização Google Drive"
+            title="DriveVault - Gerenciador de Backup do EcoFeira"
           />
+          
+          {!isIframeReady && (
+            <div className="absolute inset-0 bg-white/80 dark:bg-[#0f172a]/80 backdrop-blur-sm flex flex-col items-center justify-center space-y-4">
+              <div className="w-12 h-12 border-4 border-brand/20 border-t-brand rounded-full animate-spin"></div>
+              <p className="text-sm font-black text-gray-400 uppercase tracking-widest">Conectando ao DriverVault...</p>
+            </div>
+          )}
           
           <div className="absolute bottom-0 left-0 right-0 p-4 bg-white/80 dark:bg-[#1e293b]/80 backdrop-blur-md border-t border-gray-100 dark:border-gray-800 text-center">
              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center justify-center">
                <svg className="w-3 h-3 mr-2 text-brand" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 4.908-3.333 9.277-8 10.364-4.667-1.087-8-5.456-8-10.364 0-.68.057-1.35.166-2.001zM9 11.242V6a1 1 0 112 0v5.242l2.121 2.122a1 1 0 11-1.414 1.414L9 11.242z" clipRule="evenodd" /></svg>
-               Conexão Segura EcoFeira & Google Cloud
+               Conexão Segura EcoFeira & DriveVault
              </p>
           </div>
         </div>
