@@ -122,6 +122,18 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </div>
             <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7" /></svg>
           </button>
+          <button onClick={() => navigate('/perfil/backup')} className="w-full p-8 flex items-center justify-between hover:bg-brand/5 transition-colors group">
+            <div className="flex items-center space-x-6">
+              <div className="p-4 bg-blue-50 dark:bg-blue-500/10 text-blue-500 rounded-2xl">
+                <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z" className="opacity-0"/>
+                  <path d="M7.71,3.5L1.15,15L4.58,21L11.13,9.5L7.71,3.5M9.73,15L6.3,21H19.42L22.85,15H9.73M15,3.5L11.58,9.5L18.13,21L21.56,15L15,3.5Z" />
+                </svg>
+              </div>
+              <span className="text-xl font-[800] text-gray-700 dark:text-gray-200 group-hover:text-brand transition-colors">Backup no Google Drive</span>
+            </div>
+            <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7" /></svg>
+          </button>
         </div>
         
         <button 
