@@ -12,6 +12,7 @@ export interface BackupPayload {
   timestamp: string;
   data: {
     favorites: string[];
+    favoriteStores: string[];
     shoppingList: any[];
     scannedHistory: string[];
     recentSearches: string[];
@@ -34,6 +35,7 @@ export const getBackupPayload = (user: User): BackupPayload => {
     timestamp: new Date().toISOString(),
     data: {
       favorites: JSON.parse(localStorage.getItem('ecofeira_favorites') || '[]'),
+      favoriteStores: JSON.parse(localStorage.getItem('ecofeira_favorite_stores') || '[]'),
       shoppingList: JSON.parse(localStorage.getItem('ecofeira_shopping_list') || '[]'),
       scannedHistory: JSON.parse(localStorage.getItem('ecofeira_scanned_history') || '[]'),
       recentSearches: JSON.parse(localStorage.getItem('ecofeira_recent_searches') || '[]'),
@@ -48,10 +50,14 @@ export const getBackupPayload = (user: User): BackupPayload => {
 export const restoreAppData = (payload: any) => {
   if (!payload || typeof payload !== 'object') return;
 
-  const { favorites, shoppingList, scannedHistory, recentSearches } = payload;
+  const { favorites, favoriteStores, shoppingList, scannedHistory, recentSearches } = payload;
 
   if (Array.isArray(favorites)) {
     localStorage.setItem('ecofeira_favorites', JSON.stringify(favorites));
+  }
+
+  if (Array.isArray(favoriteStores)) {
+    localStorage.setItem('ecofeira_favorite_stores', JSON.stringify(favoriteStores));
   }
   
   if (Array.isArray(shoppingList)) {
