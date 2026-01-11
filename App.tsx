@@ -398,6 +398,7 @@ const App: React.FC = () => {
   const [gridBanners, setGridBanners] = useState<GridBanner[]>([]);
   const [shoppingList, setShoppingList] = useState<ShoppingListItem[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [favoriteStores, setFavoriteStores] = useState<string[]>(() => JSON.parse(localStorage.getItem('ecofeira_favorite_stores') || '[]') as string[]);
   const [popularSuggestions, setPopularSuggestions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -419,6 +420,7 @@ const App: React.FC = () => {
   const [onlyPromos, setOnlyPromos] = useState(false);
   const [isClearFavoritesModalOpen, setIsClearFavoritesModalOpen] = useState(false);
   const [isClearListModalOpen, setIsClearListModalOpen] = useState(false);
+  const [clearFavoritesContext, setClearFavoritesContext] = useState<{type: 'products' | 'stores', ids: string[] | null}>({type: 'products', ids: null});
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => { setUser(currentUser); setAuthLoading(false); });
@@ -441,31 +443,21 @@ const App: React.FC = () => {
 
   const handleLogin = async () => { try { await signInWithPopup(auth, googleProvider); } catch (error) {} };
   
-  /**
-   * handleLogout - Gerencia o encerramento da sessão do usuário.
-   * SEGURANÇA: Limpa todos os dados sensíveis do LocalStorage e estados do React.
-   * Isso garante que nenhum dado privado permaneça no dispositivo após a saída.
-   */
   const handleLogout = async () => { 
     try { 
-      // 1. Realiza o logout no provedor de autenticação (Firebase)
       await signOut(auth); 
-      
-      // 2. PRIVACIDADE: Limpeza do LocalStorage
-      // Removemos chaves que contém dados específicos do comportamento e preferências do usuário logado.
       localStorage.removeItem('ecofeira_favorites');
+      localStorage.removeItem('ecofeira_favorite_stores');
       localStorage.removeItem('ecofeira_shopping_list');
       localStorage.removeItem('ecofeira_recent_searches');
       localStorage.removeItem('ecofeira_scanned_history');
 
-      // 3. LIMPEZA DE ESTADO EM MEMÓRIA:
-      // Resetamos os estados para garantir que a UI reflita a conta vazia imediatamente.
       setFavorites([]);
+      setFavoriteStores([]);
       setShoppingList([]);
       setRecentSearches([]);
       setScannedHistory([]);
       
-      // 4. Navegação
       navigate('/'); 
       console.log("🔐 EcoFeira: Sessão encerrada e dados locais limpos com segurança.");
     } catch (error) {
@@ -474,6 +466,7 @@ const App: React.FC = () => {
   };
 
   useEffect(() => { if (!loading) localStorage.setItem('ecofeira_favorites', JSON.stringify(favorites)); }, [favorites, loading]);
+  useEffect(() => { if (!loading) localStorage.setItem('ecofeira_favorite_stores', JSON.stringify(favoriteStores)); }, [favoriteStores, loading]);
   useEffect(() => { if (!loading) localStorage.setItem('ecofeira_shopping_list', JSON.stringify(shoppingList)); }, [shoppingList, loading]);
   useEffect(() => localStorage.setItem('ecofeira_recent_searches', JSON.stringify(recentSearches)), [recentSearches]);
   useEffect(() => localStorage.setItem('ecofeira_scanned_history', JSON.stringify(scannedHistory)), [scannedHistory]);
@@ -522,7 +515,31 @@ const App: React.FC = () => {
   const removeFromList = (id: string) => setShoppingList(prev => prev.filter(item => item.id !== id));
   const updateQuantity = (id: string, delta: number) => setShoppingList(prev => prev.map(item => item.id === id ? { ...item, quantity: Math.max(1, item.quantity + delta) } : item));
   const toggleFavorite = (productId: string) => setFavorites(prev => prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]);
-  const clearAllFavorites = () => { setFavorites([]); setIsClearFavoritesModalOpen(false); };
+  const toggleFavoriteStore = (storeId: string) => setFavoriteStores(prev => prev.includes(storeId) ? prev.filter(id => id !== storeId) : [...prev, storeId]);
+  
+  const handleClearFavorites = (type: 'products' | 'stores', ids: string[] | null) => {
+    setClearFavoritesContext({type, ids});
+    setIsClearFavoritesModalOpen(true);
+  };
+
+  const confirmClearFavorites = () => {
+    const { type, ids } = clearFavoritesContext;
+    if (type === 'products') {
+      if (ids) {
+        setFavorites(prev => prev.filter(id => !ids.includes(id)));
+      } else {
+        setFavorites([]);
+      }
+    } else if (type === 'stores') {
+      if (ids) {
+        setFavoriteStores(prev => prev.filter(id => !ids.includes(id)));
+      } else {
+        setFavoriteStores([]);
+      }
+    }
+    setIsClearFavoritesModalOpen(false);
+  };
+
   const clearShoppingList = () => { setShoppingList([]); setIsClearListModalOpen(false); };
 
   const filteredProducts = useMemo(() => {
@@ -560,14 +577,14 @@ const App: React.FC = () => {
   if (loading || authLoading) return <div className="min-h-screen flex flex-col items-center justify-center bg-white dark:bg-[#0f172a]"><div className="w-16 h-16 border-[6px] border-brand/10 border-t-brand rounded-full animate-spin mb-8"></div><p className="text-gray-500 dark:text-gray-400 font-[800] text-xl animate-pulse">EcoFeira...</p></div>;
 
   return (
-    <Layout cartCount={shoppingList.length} favoritesCount={favorites.length} user={user}>
+    <Layout cartCount={shoppingList.length} favoritesCount={favorites.length + favoriteStores.length} user={user}>
       <ScannerModal isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} onScanSuccess={handleScanSuccess} />
       <ConfirmModal 
         isOpen={isClearFavoritesModalOpen} 
         onClose={() => setIsClearFavoritesModalOpen(false)} 
-        onConfirm={clearAllFavorites}
-        title="Limpar Favoritos?"
-        message="Isso removerá todos os itens que você salvou. Esta ação não pode ser desfeita."
+        onConfirm={confirmClearFavorites}
+        title={clearFavoritesContext.ids ? "Remover Selecionados?" : (clearFavoritesContext.type === 'products' ? "Limpar Produtos?" : "Limpar Lojas?")}
+        message={clearFavoritesContext.ids ? `Você está prestes a remover ${clearFavoritesContext.ids.length} itens selecionados.` : (clearFavoritesContext.type === 'products' ? "Isso removerá todos os produtos favoritados." : "Isso removerá todas as lojas favoritadas.")}
       />
       <ConfirmModal 
         isOpen={isClearListModalOpen} 
@@ -614,12 +631,12 @@ const App: React.FC = () => {
                     <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" /></svg>
                   </div>
                 </div></div><div className="space-y-6 sm:space-y-10"><div className="overflow-hidden"><span className="text-[10px] font-[900] text-gray-400 uppercase tracking-[1px] mb-3 block">CATEGORIAS:</span><div ref={categoriesRef} className="flex items-center gap-2 sm:gap-4 overflow-x-auto no-scrollbar pb-2 cursor-grab select-none active:cursor-grabbing">{categories.map(cat => <button key={cat} onClick={() => setSelectedCategory(cat)} className={`flex-shrink-0 px-6 py-3 rounded-xl sm:rounded-[1.5rem] text-xs sm:text-[15px] font-[800] transition-all shadow-sm ${selectedCategory === cat ? 'bg-brand text-white shadow-xl shadow-brand/30 scale-105' : 'bg-white dark:bg-[#1e293b] text-gray-600 dark:text-gray-300 border border-gray-100 dark:border-gray-800 hover:border-brand'}`}>{cat}</button>)}</div></div><div className="overflow-hidden"><span className="text-[10px] font-[900] text-gray-400 uppercase tracking-[1px] mb-3 block">LOJAS:</span><div ref={storesRef} className="flex items-center gap-2 sm:gap-4 overflow-x-auto no-scrollbar pb-2 cursor-grab select-none active:cursor-grabbing">{supermarketNames.map(store => <button key={store} onClick={() => setSelectedSupermarket(store)} className={`flex-shrink-0 px-6 py-3 rounded-xl sm:rounded-[1.5rem] text-xs sm:text-[15px] font-[800] transition-all shadow-sm flex items-center space-x-2 ${selectedSupermarket === store ? 'bg-brand text-white shadow-xl shadow-brand/30 scale-105' : 'bg-white dark:bg-[#1e293b] text-gray-600 dark:text-gray-300 border border-gray-100 dark:border-gray-800 hover:border-brand'}`}>{store}</button>)}</div></div></div></div><div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-12">{filteredProducts.slice((currentPage-1)*ITEMS_PER_PAGE, currentPage*ITEMS_PER_PAGE).map((p, idx) => <ProductCard key={p.id} product={p} onAddToList={addToList} onToggleFavorite={toggleFavorite} isFavorite={favorites.includes(p.id)} storeLogo={stores.find(s => s.name === p.supermarket)?.logo} user={user} />)}</div><ProductPagination currentPage={currentPage} totalPages={Math.ceil(filteredProducts.length/ITEMS_PER_PAGE)} onPageChange={setCurrentPage} /></div>} />
-        <Route path="/supermercados" element={<Lojas stores={stores} onStoreClick={openStoreDetail} />} />
-        <Route path="/perfil" element={<ProfileView user={user} favoritesCount={favorites.length} shoppingListCount={shoppingList.length} onLogout={handleLogout} onLogin={handleLogin} />} />
+        <Route path="/supermercados" element={<Lojas stores={stores} onStoreClick={openStoreDetail} favoriteStores={favoriteStores} onToggleFavoriteStore={toggleFavoriteStore} />} />
+        <Route path="/perfil" element={<ProfileView user={user} favoritesCount={favorites.length + favoriteStores.length} shoppingListCount={shoppingList.length} onLogout={handleLogout} onLogin={handleLogin} />} />
         <Route path="/perfil/backup" element={<BackupView user={user} />} />
         <Route path="/supermercado/:storeId" element={<StoreDetailView products={products} stores={stores} searchQuery={searchQuery} setSearchQuery={setSearchQuery} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} sortBy={sortBy} setSortBy={setSortBy} favorites={favorites} toggleFavorite={toggleFavorite} addToList={addToList} showSearchSuggestions={showSearchSuggestions} setShowSearchSuggestions={setShowSearchSuggestions} searchSuggestionRef={searchSuggestionRef} storeCategoriesRef={storeCategoriesRef} categories={categories} currentPage={currentPage} setCurrentPage={setCurrentPage} onOpenScanner={() => setIsScannerOpen(true)} user={user} />} />
         <Route path="/:storeName/:categoryName/:productId/:productName" element={<ProductDetailView products={products} stores={stores} favorites={favorites} toggleFavorite={toggleFavorite} addToList={addToList} />} />
-        <Route path="/favoritos" element={<FavoritesView favorites={favorites} favoritedProducts={favoritedProducts} stores={stores} user={user} onAddToList={addToList} onToggleFavorite={toggleFavorite} onClearClick={() => setIsClearFavoritesModalOpen(true)} />} />
+        <Route path="/favoritos" element={<FavoritesView favorites={favorites} favoritedProducts={favoritedProducts} favoriteStores={favoriteStores} stores={stores} user={user} onAddToList={addToList} onToggleFavorite={toggleFavorite} onToggleFavoriteStore={toggleFavoriteStore} onClearClick={handleClearFavorites} onStoreClick={openStoreDetail} />} />
         <Route path="/lista" element={<ShoppingListView shoppingList={shoppingList} products={products} stores={stores} onUpdateQuantity={updateQuantity} onRemoveFromList={removeFromList} onClearClick={() => setIsClearListModalOpen(true)} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

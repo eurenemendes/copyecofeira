@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Supermarket } from '../types';
 import { InputClearButton } from './ui/InputClearButton.tsx';
@@ -6,12 +7,14 @@ import { SearchInput } from './ui/SearchInput.tsx';
 interface LojasProps {
   stores: Supermarket[];
   onStoreClick: (store: Supermarket) => void;
+  favoriteStores: string[];
+  onToggleFavoriteStore: (id: string) => void;
 }
 
 const normalizeString = (str: string) => 
   str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
-export const Lojas: React.FC<LojasProps> = ({ stores, onStoreClick }) => {
+export const Lojas: React.FC<LojasProps> = ({ stores, onStoreClick, favoriteStores, onToggleFavoriteStore }) => {
   const [storeSearchQuery, setStoreSearchQuery] = useState('');
   const [showStoreSuggestions, setShowStoreSuggestions] = useState(false);
   const suggestionRef = useRef<HTMLDivElement>(null);
@@ -116,34 +119,50 @@ export const Lojas: React.FC<LojasProps> = ({ stores, onStoreClick }) => {
           </div>
         </div>
 
-        {filteredStores.map(store => (
-          <div key={store.id} className="bg-white dark:bg-[#1e293b] border border-gray-100 dark:border-gray-800 rounded-2xl sm:rounded-[3.5rem] p-4 sm:p-16 shadow-sm hover:shadow-2xl transition-all duration-700 flex flex-col items-center text-center space-y-4 sm:space-y-10 group">
-            <div className="w-16 h-16 sm:w-40 sm:h-40 bg-[#f8fafc] dark:bg-[#0f172a] rounded-xl sm:rounded-[2.8rem] flex items-center justify-center p-3 sm:p-10 border border-gray-100 dark:border-gray-800 group-hover:scale-110 transition-all duration-700">
-              <img src={store.logo} alt={store.name} className="w-full h-full object-contain" />
-            </div>
-            <div className="space-y-1 sm:space-y-4">
-              <h3 className="text-base sm:text-4xl font-[900] text-[#111827] dark:text-white tracking-tighter leading-tight line-clamp-1">{store.name}</h3>
-              <p className="text-[8px] sm:text-base text-gray-400 font-bold max-w-[200px] sm:max-w-none">{store.street}, {store.number} - {store.neighborhood}</p>
-              <div className="flex justify-center mt-2">
-                <div className={`inline-flex items-center px-4 py-1.5 rounded-full border text-[10px] sm:text-xs font-black uppercase tracking-widest space-x-2 ${store.status?.toLowerCase() === 'aberto' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 'bg-red-500/10 border-red-500/20 text-red-500'}`}>
-                  <span className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${store.status?.toLowerCase() === 'aberto' ? 'bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]' : 'bg-red-500'}`}></span>
-                  <span>{store.status || 'Fechado'}</span>
-                </div>
-              </div>
-            </div>
-            <div className="pt-2 sm:pt-8 w-full">
+        {filteredStores.map(store => {
+          const isFavorite = favoriteStores.includes(store.id);
+          return (
+            <div key={store.id} className="bg-white dark:bg-[#1e293b] border border-gray-100 dark:border-gray-800 rounded-2xl sm:rounded-[3.5rem] p-4 sm:p-16 shadow-sm hover:shadow-2xl transition-all duration-700 flex flex-col items-center text-center space-y-4 sm:space-y-10 group relative">
               <button 
-                onClick={() => onStoreClick(store)} 
-                className="w-full py-3 sm:py-6 border-2 border-gray-100 dark:border-gray-800 text-[#111827] dark:text-white font-[900] rounded-xl sm:rounded-[2rem] hover:border-brand hover:text-brand dark:hover:bg-brand dark:hover:text-white transition-all flex items-center justify-center space-x-2 sm:space-x-4 text-xs sm:text-xl"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleFavoriteStore(store.id);
+                }}
+                className={`absolute top-4 right-4 sm:top-8 sm:right-8 p-2 sm:p-4 rounded-xl sm:rounded-2xl shadow-lg transition-all hover:scale-110 active:scale-90 ${isFavorite ? 'bg-red-500 text-white shadow-red-500/30' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}
+                title={isFavorite ? "Remover dos Favoritos" : "Adicionar aos Favoritos"}
               >
-                <span>Ver Ofertas</span>
-                <svg className="w-3 h-3 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                <svg className={`w-4 h-4 sm:w-6 sm:h-6 ${isFavorite ? 'fill-current' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                 </svg>
               </button>
+
+              <div className="w-16 h-16 sm:w-40 sm:h-40 bg-[#f8fafc] dark:bg-[#0f172a] rounded-xl sm:rounded-[2.8rem] flex items-center justify-center p-3 sm:p-10 border border-gray-100 dark:border-gray-800 group-hover:scale-110 transition-all duration-700">
+                <img src={store.logo} alt={store.name} className="w-full h-full object-contain" />
+              </div>
+              <div className="space-y-1 sm:space-y-4">
+                <h3 className="text-base sm:text-4xl font-[900] text-[#111827] dark:text-white tracking-tighter leading-tight line-clamp-1">{store.name}</h3>
+                <p className="text-[8px] sm:text-base text-gray-400 font-bold max-w-[200px] sm:max-w-none">{store.street}, {store.number} - {store.neighborhood}</p>
+                <div className="flex justify-center mt-2">
+                  <div className={`inline-flex items-center px-4 py-1.5 rounded-full border text-[10px] sm:text-xs font-black uppercase tracking-widest space-x-2 ${store.status?.toLowerCase() === 'aberto' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 'bg-red-500/10 border-red-500/20 text-red-500'}`}>
+                    <span className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${store.status?.toLowerCase() === 'aberto' ? 'bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]' : 'bg-red-500'}`}></span>
+                    <span>{store.status || 'Fechado'}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="pt-2 sm:pt-8 w-full">
+                <button 
+                  onClick={() => onStoreClick(store)} 
+                  className="w-full py-3 sm:py-6 border-2 border-gray-100 dark:border-gray-800 text-[#111827] dark:text-white font-[900] rounded-xl sm:rounded-[2rem] hover:border-brand hover:text-brand dark:hover:bg-brand dark:hover:text-white transition-all flex items-center justify-center space-x-2 sm:space-x-4 text-xs sm:text-xl"
+                >
+                  <span>Ver Ofertas</span>
+                  <svg className="w-3 h-3 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
